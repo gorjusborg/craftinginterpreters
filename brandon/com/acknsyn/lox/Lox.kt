@@ -5,7 +5,6 @@ import javax.swing.GroupLayout.Group
 import kotlin.system.exitProcess
 import kotlin.text.Charsets.UTF_8
 
-
 private val KEYWORDS = mapOf(
     "and" to TokenType.AND,
     "class" to TokenType.CLASS,
@@ -25,40 +24,60 @@ private val KEYWORDS = mapOf(
     "while" to TokenType.WHILE
 )
 
-fun main(args: Array<String>) {
-    if (args.size > 1) {
-        println("Usage: klox [script]")
-        exitProcess(64)
-    } else if (args.size == 1) {
-        runFile(args[0])
-    } else {
-        runPrompt()
-    }
-}
-
-fun run(source: String) {
-    val scanner = Scanner(source)
-    val tokens: List<Token> = scanner.scanTokens();
-
-    tokens.forEach {
-        println(it)
-    }
-}
-
-fun runFile(filename: String) {
-    val text = File(filename).readText(UTF_8)
-    run(text)
-}
-
-fun runPrompt() {
-    while (true) {
-        println("> ")
-        try {
-            val line = readln()
-            run(line)
-        } catch (e: Exception) {
-            break;
+class Lox {
+    companion object {
+        fun error(line: Int, msg: String) {
+            report(line, "", msg)
         }
+
+        fun error(token: Token, message: String) {
+            if (token.type == TokenType.EOF) {
+                report(token.line, " at end", message)
+            } else {
+                report(token.line, "at '${token.lexeme}'", message)
+            }
+        }
+
+        @JvmStatic
+        fun main(args: Array<String>) {
+            if (args.size > 1) {
+                println("Usage: klox [script]")
+                exitProcess(64)
+            } else if (args.size == 1) {
+                runFile(args[0])
+            } else {
+                runPrompt()
+            }
+        }
+
+        private fun run(source: String) {
+            val scanner = Scanner(source)
+            val tokens: List<Token> = scanner.scanTokens();
+            val parser = Parser(tokens)
+            val expr = parser.parse()
+
+            expr?.let {
+                print(AstPrinter().print(it))
+            }
+        }
+
+        private fun runFile(filename: String) {
+            val text = File(filename).readText(UTF_8)
+            run(text)
+        }
+
+        private fun runPrompt() {
+            while (true) {
+                println("> ")
+                try {
+                    val line = readln()
+                    run(line)
+                } catch (e: Exception) {
+                    break;
+                }
+            }
+        }
+
     }
 }
 
@@ -113,9 +132,6 @@ enum class TokenType {
 
 data class Token(val type: TokenType, val lexeme: String, val literal: Any?, val line: Int)
 
-fun error(line: Int, msg: String) {
-    report(line, "", msg)
-}
 
 fun report(line: Int, where: String, msg: String) {
     System.err.println("[line ${line}] Error ${where}: $msg")
@@ -205,7 +221,7 @@ class Scanner(private val source: String) {
                 } else if (isAlpha(c)) {
                     identifier()
                 } else {
-                    error(line, "Unexpected character.")
+                    Lox.error(line, "Unexpected character.")
                 }
             }
         }
@@ -279,7 +295,7 @@ class Scanner(private val source: String) {
         }
 
         if (isAtEnd()) {
-            error(line, "Unterminated string.")
+            Lox.error(line, "Unterminated string.")
             return
         }
 
@@ -351,6 +367,7 @@ class AstPrinter : Visitor<String> {
     override fun visitGrouping(it: Grouping): String = parenthesize("group", it.expr)
 
     private fun parenthesize(name: String, vararg exprs: Expr): String {
+
         return "(${name}${exprs.map { " " + it.accept(this) }.joinToString(separator = "")})"
     }
 }
@@ -385,4 +402,146 @@ class RpnPrinter : Visitor<String> {
     override fun visitBinary(it: Binary): String = "${it.left.accept(this)} ${it.right.accept(this)} ${it.op.lexeme}"
 
     override fun visitGrouping(it: Grouping): String = it.expr.accept(this)
+}
+
+class ParseError: RuntimeException()
+class Parser(private val tokens: List<Token>) {
+    private var current: Int = 0;
+
+    fun parse(): Expr? = try {
+        expression()
+    } catch (error: ParseError) {
+        null
+    }
+
+    private fun expression(): Expr = equality()
+    private fun equality(): Expr {
+        var expr = comparison()
+
+        while(match(TokenType.BANG_EQUAL, TokenType.EQUAL_EQUAL)) {
+            val op = previous()
+            val right = comparison()
+            expr = Binary(expr, op, right)
+        }
+
+        return expr
+    }
+
+    private fun comparison(): Expr {
+        var expr = term()
+
+        while (match(TokenType.GREATER, TokenType.GREATER_EQUAL, TokenType.LESS, TokenType.LESS_EQUAL)) {
+            val op = previous()
+            val right = term()
+            expr = Binary(expr, op, right)
+        }
+
+        return expr
+    }
+
+    private fun term(): Expr {
+        var expr = factor()
+
+        while(match(TokenType.MINUS, TokenType.PLUS)) {
+            val op = previous()
+            val right = factor()
+            expr = Binary(expr, op, right)
+        }
+        return expr
+    }
+
+    private fun factor(): Expr {
+        var expr = unary()
+
+        while(match(TokenType.SLASH, TokenType.STAR)) {
+            val op = previous()
+            val right = unary()
+            expr = Binary(expr, op, right)
+        }
+
+        return expr
+    }
+
+    private fun unary(): Expr {
+        while (match(TokenType.BANG, TokenType.MINUS)) {
+            val op = previous()
+            val right = unary()
+            return Unary(op, right)
+        }
+
+        return primary()
+    }
+
+    private fun primary(): Expr {
+        if (match(TokenType.NUMBER, TokenType.STRING, TokenType.TRUE, TokenType.FALSE, TokenType.NIL)) {
+            return Literal(previous())
+        }
+        return grouping()
+    }
+    private fun grouping(): Expr {
+        if (match(TokenType.LEFT_PAREN)) {
+            val expr = expression()
+            consume(TokenType.RIGHT_PAREN, "Expect ')' after expression.")
+            return Grouping(expr)
+        }
+        throw error(peek(), "Expect expression")
+    }
+
+    private fun error(token: Token, message: String): ParseError {
+        Lox.error(token, message)
+        return ParseError()
+    }
+
+    private fun synchronize() {
+        advance()
+
+        while(!isAtEnd()) {
+            if (previous().type == TokenType.SEMICOLON) return
+
+            when (peek().type) {
+                TokenType.CLASS,
+                TokenType.FOR,
+                TokenType.FUN,
+                TokenType.IF,
+                TokenType.PRINT,
+                TokenType.RETURN,
+                TokenType.VAR,
+                TokenType.WHILE -> return
+                else -> advance()
+            }
+        }
+    }
+
+    private fun consume(type: TokenType, message: String): Token {
+        if (check(type)) return advance()
+
+        throw error(peek(), message)
+    }
+    private fun match(vararg types: TokenType): Boolean {
+        for (type in types) {
+            if (check(type)) {
+                advance()
+                return true
+            }
+        }
+        return false
+    }
+
+    private fun advance(): Token {
+        if (!isAtEnd()) {
+            current += 1
+        }
+        return previous()
+    }
+
+    private fun check(type: TokenType): Boolean = when {
+        isAtEnd() -> false
+        else -> peek().type == type
+    }
+
+    private fun isAtEnd(): Boolean = peek().type == TokenType.EOF
+
+    private fun peek(): Token = tokens[current]
+
+    private fun previous(): Token = tokens[current - 1]
 }
