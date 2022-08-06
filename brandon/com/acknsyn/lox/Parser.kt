@@ -82,11 +82,19 @@ class Parser(private val tokens: List<Token>) {
         throw error(peek(), "Expect expression")
     }
 
+    /**
+     * Prints and returns a ParseError
+     */
     private fun error(token: Token, message: String): ParseError {
         Lox.error(token, message)
         return ParseError()
     }
 
+    /**
+     * Advance to next statement-ish.
+     * Meant to be called following parse errors to
+     * allow parsing past the first error.
+     */
     private fun synchronize() {
         advance()
 
@@ -107,11 +115,20 @@ class Parser(private val tokens: List<Token>) {
         }
     }
 
+    /**
+     * Checks if token at current position is of type, advances to next token if it is.
+     * Otherwise, throws error with provided message.
+     */
     private fun consume(type: TokenType, message: String): Token {
         if (check(type)) return advance()
 
         throw error(peek(), message)
     }
+
+    /**
+     * Checks if token at current position is any of the provided types.
+     * Advances to next position in stream if it is, otherwise does not advance to next token.
+     */
     private fun match(vararg types: TokenType): Boolean {
         for (type in types) {
             if (check(type)) {
@@ -122,6 +139,9 @@ class Parser(private val tokens: List<Token>) {
         return false
     }
 
+    /**
+     * Returns token at current stream, then advances to next token in stream.
+     */
     private fun advance(): Token {
         if (!isAtEnd()) {
             current += 1
@@ -129,14 +149,27 @@ class Parser(private val tokens: List<Token>) {
         return previous()
     }
 
+    /**
+     * Checks whether token at current position is of a particular type.
+     * Does not advance to next token.
+     */
     private fun check(type: TokenType): Boolean = when {
         isAtEnd() -> false
         else -> peek().type == type
     }
 
+    /**
+     * Checks whether current token is EOF. Does not advance to next token.
+     */
     private fun isAtEnd(): Boolean = peek().type == TokenType.EOF
 
+    /**
+     * Returns token at current position. Does not advance to next token.
+     */
     private fun peek(): Token = tokens[current]
 
+    /**
+     * Returns token at position before current position
+     */
     private fun previous(): Token = tokens[current - 1]
 }
