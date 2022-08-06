@@ -1,6 +1,19 @@
 package com.acknsyn.lox
 
-class Interpreter: Visitor<Any?> {
+class Interpreter : Visitor<Any?> {
+    fun interpret(expr: Expr): Any? = try {
+        val value = eval(expr)
+        println(stringify(value))
+    } catch (e: EvalError) {
+        Lox.evalError(e)
+    }
+
+    private fun stringify(value: Any?) = when (value) {
+        null -> "nil"
+        is Double -> value.toString().removeSuffix(".0")
+        else -> value.toString()
+    }
+
     override fun visitLiteral(it: Literal): Any? = it.value;
 
     override fun visitUnary(it: Unary): Any? {
@@ -19,45 +32,53 @@ class Interpreter: Visitor<Any?> {
 
         return when (it.op.type) {
             TokenType.PLUS -> when {
-                    leftVal is Double && rightVal is Double -> leftVal + rightVal
-                    leftVal is String || rightVal is String -> leftVal.toString() + rightVal.toString()
-                    else -> throw EvalError(it.op, "invalid attempt at addition")
-                }
+                leftVal is Double && rightVal is Double -> leftVal + rightVal
+                leftVal is String || rightVal is String -> leftVal.toString() + rightVal.toString()
+                else -> throw EvalError(it.op, "invalid attempt at addition")
+            }
+
             TokenType.MINUS -> when {
                 leftVal is Double && rightVal is Double -> leftVal - rightVal
                 else -> throw EvalError(it.op, "invalid attempt at subtraction")
             }
+
             TokenType.STAR -> when {
                 leftVal is Double && rightVal is Double -> leftVal * rightVal
                 else -> throw EvalError(it.op, "invalid attempt at multiplication")
             }
+
             TokenType.SLASH -> when {
                 leftVal is Double && rightVal is Double -> leftVal / rightVal
                 else -> throw EvalError(it.op, "invalid attempt at division")
             }
+
             TokenType.GREATER -> when {
                 leftVal is Double && rightVal is Double -> leftVal > rightVal
                 else -> throw EvalError(it.op, "invalid attempt at gt")
             }
+
             TokenType.GREATER_EQUAL -> when {
                 leftVal is Double && rightVal is Double -> leftVal >= rightVal
                 else -> throw EvalError(it.op, "invalid attempt at gte")
             }
+
             TokenType.LESS -> when {
                 leftVal is Double && rightVal is Double -> leftVal < rightVal
                 else -> throw EvalError(it.op, "invalid attempt at lt")
             }
+
             TokenType.LESS_EQUAL -> when {
                 leftVal is Double && rightVal is Double -> leftVal <= rightVal
                 else -> throw EvalError(it.op, "invalid attempt at lte")
             }
-            TokenType.EQUAL -> isEqual(rightVal, leftVal)
+
+            TokenType.EQUAL_EQUAL -> isEqual(rightVal, leftVal)
             TokenType.BANG_EQUAL -> !isEqual(rightVal, leftVal)
             else -> throw EvalError(it.op, "invalid binary operation")
         }
     }
 
-    override fun visitGrouping(it: Grouping): Any?  = eval(it.expr)
+    override fun visitGrouping(it: Grouping): Any? = eval(it.expr)
 
     private fun eval(expr: Expr) = expr.accept(this)
 
@@ -66,5 +87,4 @@ class Interpreter: Visitor<Any?> {
         left == null -> false
         else -> left == right
     }
-
 }
