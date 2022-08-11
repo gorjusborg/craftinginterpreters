@@ -2,13 +2,13 @@ package com.acknsyn.lox
 
 abstract class Expr {
     abstract fun <R> accept(visitor: Visitor<R>): R
-}
 
-interface Visitor<R> {
-    fun visitLiteral(it: Literal): R
-    fun visitUnary(it: Unary): R
-    fun visitBinary(it: Binary): R
-    fun visitGrouping(it: Grouping): R
+    interface Visitor<R> {
+        fun visitLiteral(it: Literal): R
+        fun visitUnary(it: Unary): R
+        fun visitBinary(it: Binary): R
+        fun visitGrouping(it: Grouping): R
+    }
 }
 
 class Literal(val value: Any?) : Expr() {

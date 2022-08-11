@@ -1,6 +1,6 @@
 package com.acknsyn.lox
 
-class Interpreter : Visitor<Any?> {
+class Interpreter : Expr.Visitor<Any?> {
     fun interpret(expr: Expr): Any? = try {
         val value = eval(expr)
         println(stringify(value))

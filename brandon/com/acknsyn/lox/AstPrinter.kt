@@ -1,6 +1,6 @@
 package com.acknsyn.lox
 
-class AstPrinter : Visitor<String> {
+class AstPrinter : Expr.Visitor<String> {
     companion object {
         @JvmStatic
         fun main(args: Array<String>) {
