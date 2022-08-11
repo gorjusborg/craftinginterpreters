@@ -3,10 +3,35 @@ package com.acknsyn.lox
 class Parser(private val tokens: List<Token>) {
     private var current: Int = 0;
 
-    fun parse(): Expr? = try {
-        expression()
+    fun parse(): List<Stmt> = try {
+        program()
     } catch (error: ParseError) {
-        null
+        emptyList()
+    }
+
+    private fun program(): List<Stmt> {
+        var statements = mutableListOf<Stmt>()
+        while(!isAtEnd()) {
+            statements.add(statement())
+        }
+        return statements;
+    }
+
+    private fun statement(): Stmt = when {
+        match(TokenType.PRINT) -> printStatement()
+        else -> expressionStatement()
+    }
+
+    private fun printStatement(): Stmt {
+        val value = expression()
+        consume(TokenType.SEMICOLON, "Expect ';' after expression.")
+        return Print(value)
+    }
+
+    private fun expressionStatement(): Stmt {
+        val value = expression()
+        consume(TokenType.SEMICOLON, "Expect ';' after expression.")
+        return Expression(value);
     }
 
     private fun expression(): Expr = equality()

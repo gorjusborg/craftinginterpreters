@@ -50,9 +50,9 @@ class Lox {
             val scanner = Scanner(source)
             val tokens: List<Token> = scanner.scanTokens();
             val parser = Parser(tokens)
-            val expr = parser.parse()
+            val statements = parser.parse()
 
-            expr?.let { interpreter.interpret(it) }
+            interpreter.interpret(statements)
         }
 
         private fun runFile(filename: String) {

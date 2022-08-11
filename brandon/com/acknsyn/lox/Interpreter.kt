@@ -1,9 +1,8 @@
 package com.acknsyn.lox
 
-class Interpreter : Expr.Visitor<Any?> {
-    fun interpret(expr: Expr): Any? = try {
-        val value = eval(expr)
-        println(stringify(value))
+class Interpreter : Expr.Visitor<Any?>, Stmt.Visitor<Unit> {
+    fun interpret(statements: List<Stmt>) = try {
+        statements.forEach(this::exec)
     } catch (e: EvalError) {
         Lox.evalError(e)
     }
@@ -86,5 +85,18 @@ class Interpreter : Expr.Visitor<Any?> {
         left == null && right == null -> true
         left == null -> false
         else -> left == right
+    }
+
+    override fun visitExpressionStmt(it: Expression) {
+        eval(it.expr)
+    }
+
+    override fun visitPrintStmt(it: Print) {
+        val value = eval(it.expr)
+        println(stringify(value))
+    }
+
+    private fun exec(stmt: Stmt) {
+        stmt.accept(this)
     }
 }
